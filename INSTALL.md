@@ -4,7 +4,7 @@ You are installing the software factory from this repository into the user's pro
 
 1. **Preconditions.** `git`, `python3` (3.10+), `gh` authenticated with push access, Claude Code with sandboxing available. The project must be a GitHub repository with a working test command. If any is missing, say so and stop.
 2. **Copy.**
-   - `skills/software-factory/SKILL.md` -> `.claude/skills/software-factory/SKILL.md`
+   - `skills/software-factory/SKILL.md` -> `.claude/skills/factory/SKILL.md`
    - `skills/software-factory/agents/*.md` -> `.claude/agents/`
    - `skills/software-factory/scripts/*` -> `factory/bin/`
    - `skills/software-factory/templates/config.json`, `checks.sh` -> `factory/`
