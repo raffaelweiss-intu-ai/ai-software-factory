@@ -48,4 +48,4 @@ State is the files in `factory/jobs/`. After a crash or a closed session run `/f
 
 ## Dashboard export
 
-After each stage change run `python3 factory/bin/export.py` to write the sanitized `docs/factory-data.json` the dashboard reads.
+(Added with the dashboard.) After each stage change run `python3 factory/bin/export.py` to write the sanitized `docs/factory-data.json` the dashboard reads.
