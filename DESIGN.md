@@ -24,6 +24,7 @@ The factory is a small deterministic spine with agents for judgment in between.
 - **Why a reviewer floor.** A reviewer weaker than the builder tends to misjudge and bounce work back; the rework costs more than the stronger model.
 - **Why escalate by list.** "Escalate when unsure" produces second reviews of fine changes. A list of categories gives a human real decisions.
 - **Why no bypass mode.** The sandbox and the deny rules are the safety net. Without them, every other rule is a polite request.
+- **Why a waiting job frees its slot.** A job parked for a human decision would otherwise block the whole queue overnight.
 - **Why branch mode by default.** The sandbox makes `.git/worktrees/<id>` read-only for a session started elsewhere, so a builder cannot commit from a worktree. One job at a time on a branch in the main checkout works inside the sandbox; parallel jobs need one session per worktree.
 - **Why state is files.** A crashed session resumes from the files. In-flight agent work is lost; that is accepted.
 
