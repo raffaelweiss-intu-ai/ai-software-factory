@@ -90,3 +90,32 @@ class ReportTests(unittest.TestCase):
         self.assertIn("Protected files changed", text)
         self.assertIn("- M factory/checks.sh", text)
         self.assertIn("Output of the checks (tail)", text)
+
+
+class BaseChecksTests(unittest.TestCase):
+    """The checks come from the base branch, not from the branch under test."""
+
+    def test_checks_script_is_taken_from_base_not_from_branch(self):
+        import subprocess
+
+        def sh(*a, cwd):
+            subprocess.run(a, cwd=cwd, check=True, capture_output=True)
+
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d)
+            sh("git", "init", "-q", "-b", "main", cwd=repo)
+            sh("git", "config", "user.email", "t@example.com", cwd=repo)
+            sh("git", "config", "user.name", "t", cwd=repo)
+            (repo / "factory").mkdir()
+            (repo / "factory/checks.sh").write_text("exit 1\n")
+            sh("git", "add", "-A", cwd=repo)
+            sh("git", "commit", "-qm", "base", cwd=repo)
+            sh("git", "checkout", "-qb", "factory/x", cwd=repo)
+            (repo / "factory/checks.sh").write_text("exit 0\n")  # branch tries to make itself green
+            sh("git", "commit", "-qam", "cheat", cwd=repo)
+            script = gate.base_checks_script(repo, "main", "factory/checks.sh")
+            try:
+                verdict, _ = gate.run_checks(["bash", str(script)], repo)
+            finally:
+                script.unlink()
+        self.assertEqual(verdict, "FAIL")

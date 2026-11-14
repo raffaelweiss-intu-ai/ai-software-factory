@@ -8,7 +8,7 @@ You are installing the software factory from this repository into the user's pro
    - `skills/software-factory/agents/*.md` -> `.claude/agents/`
    - `skills/software-factory/scripts/*` -> `factory/bin/`
    - `skills/software-factory/templates/config.json`, `checks.sh` -> `factory/`
-   - `skills/software-factory/templates/settings.json` -> `.claude/settings.json` (merge with an existing file; never drop existing `deny` rules). Replace `<ABSOLUTE-PROJECT-PATH>` with the project's absolute path: builders commit from git worktrees, and the sandbox only allows that when the project's `.git` is listed. `hooks` and `config` inside `.git` stay protected
+   - `skills/software-factory/templates/settings.json` -> `.claude/settings.json` (merge with an existing file; never drop existing `deny` rules)
    - `templates/workflows/gates.yml` -> `.github/workflows/gates.yml`; `gitleaks.toml` -> `.gitleaks.toml`; `pre-commit-config.yaml` -> `.pre-commit-config.yaml`
    - Append `templates/gitignore.snippet` to `.gitignore` (skip lines already present).
 3. **Fill `factory/checks.sh`** with this project's real lint, typecheck, test and build commands. Run it on `main`. It must pass before you continue.
