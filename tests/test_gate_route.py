@@ -81,3 +81,12 @@ class RouteTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ReportTests(unittest.TestCase):
+    def test_report_is_english_and_lists_protected_hits(self):
+        text = gate.render_report("FAIL", ["M factory/checks.sh"], "boom")
+        self.assertTrue(text.startswith("GATE: FAIL"))
+        self.assertIn("Protected files changed", text)
+        self.assertIn("- M factory/checks.sh", text)
+        self.assertIn("Output of the checks (tail)", text)
