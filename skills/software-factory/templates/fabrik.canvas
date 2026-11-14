@@ -1,0 +1,240 @@
+{
+ "nodes": [
+  {
+   "id": "goal",
+   "type": "text",
+   "x": -200,
+   "y": -320,
+   "width": 520,
+   "height": 110,
+   "text": "# The factory\nThe product is the system that builds the code: specs, agents, gates, feedback loops, guardrails.",
+   "color": "6"
+  },
+  {
+   "id": "issue",
+   "type": "text",
+   "x": -560,
+   "y": -80,
+   "width": 200,
+   "height": 90,
+   "text": "**GitHub issue**\nlabel `factory`"
+  },
+  {
+   "id": "intake",
+   "type": "text",
+   "x": -300,
+   "y": -80,
+   "width": 200,
+   "height": 90,
+   "text": "**Intake**\nworth building? scope? risk?",
+   "color": "2"
+  },
+  {
+   "id": "spec",
+   "type": "text",
+   "x": -40,
+   "y": -80,
+   "width": 200,
+   "height": 90,
+   "text": "**Spec writer**\nacceptance criteria"
+  },
+  {
+   "id": "build",
+   "type": "text",
+   "x": 220,
+   "y": -80,
+   "width": 200,
+   "height": 90,
+   "text": "**Builder**\ntests first, small PR"
+  },
+  {
+   "id": "gate",
+   "type": "text",
+   "x": 480,
+   "y": -80,
+   "width": 200,
+   "height": 90,
+   "text": "**Gate** (script)\nchecks.sh from `main`",
+   "color": "1"
+  },
+  {
+   "id": "review",
+   "type": "text",
+   "x": 740,
+   "y": -200,
+   "width": 220,
+   "height": 160,
+   "text": "**Reviewers**\ncode · ui · security\nrouted by risk, never weaker than the floor",
+   "color": "3"
+  },
+  {
+   "id": "approve",
+   "type": "text",
+   "x": 1000,
+   "y": -80,
+   "width": 200,
+   "height": 90,
+   "text": "**Approver**\nAPPROVE or ESCALATE",
+   "color": "2"
+  },
+  {
+   "id": "merge",
+   "type": "text",
+   "x": 1260,
+   "y": -180,
+   "width": 180,
+   "height": 80,
+   "text": "**Merge PR**\n`gh pr merge`",
+   "color": "4"
+  },
+  {
+   "id": "human",
+   "type": "text",
+   "x": 1260,
+   "y": 20,
+   "width": 180,
+   "height": 80,
+   "text": "**Needs human**\nYOUR CALL",
+   "color": "1"
+  },
+  {
+   "id": "info",
+   "type": "text",
+   "x": -300,
+   "y": 100,
+   "width": 200,
+   "height": 100,
+   "text": "NEEDS-INFO: asks the author\nREJECT: says why"
+  },
+  {
+   "id": "fail",
+   "type": "text",
+   "x": 300,
+   "y": 120,
+   "width": 320,
+   "height": 70,
+   "text": "FAIL: builder gets the log, no reviewer runs"
+  },
+  {
+   "id": "changes",
+   "type": "text",
+   "x": 580,
+   "y": 230,
+   "width": 360,
+   "height": 70,
+   "text": "CHANGES: the same builder fixes it (max 3 rounds)"
+  },
+  {
+   "id": "state",
+   "type": "text",
+   "x": -300,
+   "y": 320,
+   "width": 520,
+   "height": 140,
+   "text": "## State\n`job.json` is written only by `factory/bin/job.py`. Illegal moves are refused. Every move is logged with time and note; the dashboard reads it."
+  },
+  {
+   "id": "guard",
+   "type": "text",
+   "x": 300,
+   "y": 360,
+   "width": 520,
+   "height": 140,
+   "text": "## Guardrails\nSandbox on, no bypass mode. Issue text is data. Protected paths. Secrets never reach the agent. Escalate: payments, auth, deploy, CI, migrations, new dependencies, public copy.",
+   "color": "1"
+  }
+ ],
+ "edges": [
+  {
+   "id": "e0",
+   "fromNode": "issue",
+   "fromSide": "right",
+   "toNode": "intake",
+   "toSide": "left"
+  },
+  {
+   "id": "e1",
+   "fromNode": "intake",
+   "fromSide": "right",
+   "toNode": "spec",
+   "toSide": "left"
+  },
+  {
+   "id": "e2",
+   "fromNode": "spec",
+   "fromSide": "right",
+   "toNode": "build",
+   "toSide": "left"
+  },
+  {
+   "id": "e3",
+   "fromNode": "build",
+   "fromSide": "right",
+   "toNode": "gate",
+   "toSide": "left"
+  },
+  {
+   "id": "e4",
+   "fromNode": "gate",
+   "fromSide": "right",
+   "toNode": "review",
+   "toSide": "left"
+  },
+  {
+   "id": "e5",
+   "fromNode": "review",
+   "fromSide": "right",
+   "toNode": "approve",
+   "toSide": "left"
+  },
+  {
+   "id": "e6",
+   "fromNode": "approve",
+   "fromSide": "right",
+   "toNode": "merge",
+   "toSide": "left"
+  },
+  {
+   "id": "e7",
+   "fromNode": "approve",
+   "fromSide": "right",
+   "toNode": "human",
+   "toSide": "left"
+  },
+  {
+   "id": "e8",
+   "fromNode": "intake",
+   "fromSide": "bottom",
+   "toNode": "info",
+   "toSide": "top"
+  },
+  {
+   "id": "e9",
+   "fromNode": "gate",
+   "fromSide": "bottom",
+   "toNode": "fail",
+   "toSide": "top"
+  },
+  {
+   "id": "e10",
+   "fromNode": "review",
+   "fromSide": "bottom",
+   "toNode": "changes",
+   "toSide": "top"
+  },
+  {
+   "id": "e11",
+   "fromNode": "fail",
+   "fromSide": "top",
+   "toNode": "build",
+   "toSide": "bottom"
+  },
+  {
+   "id": "e12",
+   "fromNode": "changes",
+   "fromSide": "top",
+   "toNode": "build",
+   "toSide": "bottom"
+  }
+ ]
+}

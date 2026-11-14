@@ -1,0 +1,13 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+secrets/
+.claude/settings.local.json
+
+# Factory state stays on the machine; the dashboard reads a sanitized export instead
+factory/jobs/
+.worktrees/
