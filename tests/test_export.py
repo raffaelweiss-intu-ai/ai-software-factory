@@ -119,6 +119,78 @@ class ExportTests(unittest.TestCase):
         export.write(self.root, out)
         self.assertNotIn("<script>alert(1)</script>", (out / "index.html").read_text())
 
+    # --- Kennzahlen, Risiko, Zeit -----------------------------------------
+    def raw_job(self, job_id, stage, events, intake=None, title="Job", issue=1):
+        d = self.root / "factory" / "jobs" / job_id
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "job.json").write_text(json.dumps({
+            "id": job_id, "issue": issue, "title": title, "stage": stage, "round": 1,
+            "events": [{"at": a, "stage": s, "round": 1, "note": n} for a, s, n in events]}))
+        if intake:
+            (d / "intake.md").write_text(intake)
+
+    NOW = "2026-11-15T12:00:00+00:00"
+
+    def test_risk_and_surfaces_come_from_intake(self):
+        self.raw_job("001-x", "build", [("2026-11-15T10:00:00+00:00", "intake", "")],
+                     intake="DECISION: ACCEPT\nRISK: high\nSURFACES: security, ui\n")
+        j = export.build(self.root, now=self.NOW)["jobs"][0]
+        self.assertEqual(j["risk"], "high")
+        self.assertEqual(j["surfaces"], ["security", "ui"])
+
+    def test_missing_intake_gives_unknown_risk(self):
+        self.raw_job("001-x", "build", [("2026-11-15T10:00:00+00:00", "intake", "")])
+        j = export.build(self.root, now=self.NOW)["jobs"][0]
+        self.assertEqual(j["risk"], "unknown")
+        self.assertEqual(j["surfaces"], [])
+
+    def test_lead_time_and_human_wait(self):
+        self.raw_job("001-x", "merged", [
+            ("2026-11-15T08:00:00+00:00", "intake", ""),
+            ("2026-11-15T08:10:00+00:00", "build", ""),
+            ("2026-11-15T08:20:00+00:00", "needs-human", "Berechtigung"),
+            ("2026-11-15T09:20:00+00:00", "build", ""),
+            ("2026-11-15T09:30:00+00:00", "merged", ""),
+        ])
+        j = export.build(self.root, now=self.NOW)["jobs"][0]
+        self.assertEqual(j["lead_minutes"], 90)
+        self.assertEqual(j["human_wait_minutes"], 60)
+        self.assertEqual(j["machine_minutes"], 30)
+
+    def test_open_job_waits_until_now(self):
+        self.raw_job("001-x", "needs-human", [
+            ("2026-11-15T10:00:00+00:00", "build", ""),
+            ("2026-11-15T10:30:00+00:00", "needs-human", "Frage")])
+        j = export.build(self.root, now=self.NOW)["jobs"][0]
+        self.assertEqual(j["human_wait_minutes"], 90)
+
+    def test_summary_autonomy_and_stage_minutes(self):
+        self.raw_job("001-a", "merged", [("2026-11-15T08:00:00+00:00", "intake", ""),
+                                         ("2026-11-15T08:10:00+00:00", "merged", "")], issue=1)
+        self.raw_job("002-b", "merged", [("2026-11-15T08:00:00+00:00", "intake", ""),
+                                         ("2026-11-15T08:10:00+00:00", "needs-human", ""),
+                                         ("2026-11-15T09:10:00+00:00", "merged", "")], issue=2)
+        s = export.build(self.root, now=self.NOW)["summary"]
+        self.assertEqual(s["merged_alone"], 1)
+        self.assertEqual(s["merged_with_human"], 1)
+        self.assertEqual(s["stage_minutes"]["needs-human"], 60)
+        self.assertEqual(s["stage_minutes"]["intake"], 20)
+        self.assertEqual(s["human_wait_share"], 60 / 80)
+
+    def test_stepper_position_of_needs_human_follows_previous_stage(self):
+        self.raw_job("001-x", "needs-human", [
+            ("2026-11-15T10:00:00+00:00", "intake", ""), ("2026-11-15T10:01:00+00:00", "approve", ""),
+            ("2026-11-15T10:02:00+00:00", "needs-human", "x")])
+        j = export.build(self.root, now=self.NOW)["jobs"][0]
+        self.assertEqual(j["progress"]["position"], "approve")
+        self.assertTrue(j["progress"]["waiting_for_human"])
+
+    def test_format_minutes(self):
+        self.assertEqual(export.fmt_minutes(5), "5 min")
+        self.assertEqual(export.fmt_minutes(80), "1 h 20 min")
+        self.assertEqual(export.fmt_minutes(1380), "23 h")
+        self.assertEqual(export.fmt_minutes(None), "–")
+
 
 if __name__ == "__main__":
     unittest.main()
