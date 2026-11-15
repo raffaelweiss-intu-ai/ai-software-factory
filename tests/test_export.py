@@ -79,6 +79,12 @@ class ExportTests(unittest.TestCase):
         self.assertIn("Berechtigung", call["reason"])
         self.assertEqual(data["summary"]["your_call"], 1)
 
+    def test_rejected_job_shows_reason_but_is_not_your_call(self):
+        self.make_job(["rejected"], notes={0: "Kundendaten an Dritte"})
+        j = export.build(self.root)["jobs"][0]
+        self.assertFalse(j["your_call"]["needed"])
+        self.assertIn("Kundendaten", j["your_call"]["reason"])
+
     def test_merged_job_is_not_your_call(self):
         self.make_job(["spec", "build", "gate", "review", "approve", "merging", "merged"])
         data = export.build(self.root)
