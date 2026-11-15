@@ -92,6 +92,15 @@ class JobTests(unittest.TestCase):
         self.assertEqual(j["stage"], "build")
         self.assertTrue((self.root / f"factory/jobs/{i}/feedback-1.md").exists())
 
+    def test_human_can_close_needs_human_as_merged(self):
+        # The human merges the PR by hand; the job record must be able to follow.
+        j = self.make()
+        i = j["id"]
+        for stage in ["spec", "build", "needs-human"]:
+            job.advance(self.root, i, stage, CONFIG)
+        j = job.advance(self.root, i, "merged", CONFIG, note="PR vom Menschen gemergt")
+        self.assertEqual(j["stage"], "merged")
+
     def test_rejected_is_final(self):
         j = self.make()
         i = j["id"]
