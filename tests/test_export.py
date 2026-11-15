@@ -185,6 +185,15 @@ class ExportTests(unittest.TestCase):
         self.assertEqual(j["progress"]["position"], "approve")
         self.assertTrue(j["progress"]["waiting_for_human"])
 
+    def test_confidence_comes_from_decision(self):
+        self.raw_job("001-x", "approve", [("2026-11-15T10:00:00+00:00", "intake", "")])
+        (self.root / "factory/jobs/001-x/decision.md").write_text("APPROVE\n\nCONFIDENCE: high\nCATEGORIES: none\n")
+        self.assertEqual(export.build(self.root, now=self.NOW)["jobs"][0]["confidence"], "high")
+
+    def test_confidence_missing_is_none(self):
+        self.raw_job("001-x", "approve", [("2026-11-15T10:00:00+00:00", "intake", "")])
+        self.assertIsNone(export.build(self.root, now=self.NOW)["jobs"][0]["confidence"])
+
     def test_format_minutes(self):
         self.assertEqual(export.fmt_minutes(5), "5 min")
         self.assertEqual(export.fmt_minutes(80), "1 h 20 min")
