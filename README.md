@@ -12,7 +12,7 @@ Companion to the article *The AI Software Factory* on the [intu.AI blog](https:/
 |---|---|
 | `skills/software-factory/SKILL.md` | The orchestrator skill (`/factory run`) |
 | `skills/software-factory/agents/` | Intake, spec writer, builder, reviewers (code, ui, security), approver |
-| `skills/software-factory/scripts/` | `job.py` (state machine, only writer of `job.json`), `gate.py`, `route.py`, `merge.sh`, `decide.py` (auto-merge or human, by risk and confidence), `export.py` (sanitized static dashboard: `python3 factory/bin/export.py --out docs`) |
+| `skills/software-factory/scripts/` | `job.py` (state machine, only writer of `job.json`), `gate.py`, `route.py`, `merge.sh`, `decide.py` (auto-merge or human, by risk and confidence), `eval.py` (replay judgement cases), `learn.py` (learning log and proposals, never changes rules), `export.py` (sanitized static dashboard: `python3 factory/bin/export.py --out docs`) |
 | `skills/software-factory/templates/` | `config.json`, `checks.sh`, sandbox `settings.json`, `.gitignore` lines, Gitleaks, pre-commit, CI workflow, `AGENTS.md` index, `fabrik.canvas` (Obsidian map) |
 | `tests/` | Behaviour tests for the scripts: `python3 -m unittest discover -s tests` |
 | `dashboard/` | The factory board (coming) |

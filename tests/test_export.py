@@ -194,6 +194,25 @@ class ExportTests(unittest.TestCase):
         self.raw_job("001-x", "approve", [("2026-11-15T10:00:00+00:00", "intake", "")])
         self.assertIsNone(export.build(self.root, now=self.NOW)["jobs"][0]["confidence"])
 
+    def test_learning_summary_reads_eval_log_and_proposals(self):
+        (self.root / "factory/evals").mkdir(parents=True)
+        (self.root / "factory/evals/last.json").write_text(json.dumps({"total": 9, "passed": 8, "warned": 1, "failed": 0}))
+        (self.root / "factory/learning").mkdir(parents=True)
+        (self.root / "factory/learning/log.jsonl").write_text(
+            json.dumps({"job": "001", "outcome": "auto", "regret": False}) + "\n" +
+            json.dumps({"job": "002", "outcome": "human-changed", "regret": True}) + "\n")
+        (self.root / "factory/learning/proposals.md").write_text("- [ ] a/feedback-1: x\n- [x] b/feedback-1: y\n")
+        L = export.build(self.root, now=self.NOW)["summary"]["learning"]
+        self.assertEqual(L["evals"], {"total": 9, "passed": 8, "warned": 1, "failed": 0})
+        self.assertEqual(L["logged"], 2)
+        self.assertEqual(L["regrets"], 1)
+        self.assertEqual(L["open_proposals"], 1)
+
+    def test_learning_summary_is_empty_without_files(self):
+        L = export.build(self.root, now=self.NOW)["summary"]["learning"]
+        self.assertIsNone(L["evals"])
+        self.assertEqual((L["logged"], L["regrets"], L["open_proposals"]), (0, 0, 0))
+
     def test_format_minutes(self):
         self.assertEqual(export.fmt_minutes(5), "5 min")
         self.assertEqual(export.fmt_minutes(80), "1 h 20 min")

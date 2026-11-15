@@ -49,6 +49,14 @@ Every prompt starts with the job folder (`factory/jobs/<job-id>/`), then the wor
 
 State is the files in `factory/jobs/`. After a crash or a closed session run `/factory run`: read `job.py list` and continue every job from its stage. Work that was in flight is lost; that is expected, say so.
 
+## Evals and learning
+
+Deterministic things stay deterministic. A script checks whatever a script can check; a model judges only where judgement is needed.
+
+- **Evals.** Run `python3 factory/bin/eval.py` before and after you change an agent prompt, `factory/config.json` or a model. It replays `factory/evals/cases.jsonl` against the files of past jobs (intake verdict, risk never under-estimated, the auto-merge rule) and exits 1 on any FAIL. A change that turns a case red does not ship. Add a case whenever a human corrects the factory: `python3 factory/bin/eval.py add intake <job-id> decision=ACCEPT risk=high surfaces=security`.
+- **Learning.** When a job reaches `merged` or `rejected`, run `python3 factory/bin/learn.py record <job-id>`. If an auto-merged job later turns out wrong, run `learn.py flag <job-id> "<reason>"`. `learn.py report` proposes threshold changes (never below `min_sample` = 5 cases); `learn.py lessons` lists human feedback as open rule proposals in `factory/learning/proposals.md`.
+- **A human decides.** Neither script edits `config.json`, rules or checks. The factory never loosens its own gates.
+
 ## Dashboard export
 
 After each stage change run `python3 factory/bin/export.py` (optionally `--out <dir>`, default `docs`). It writes the sanitized `dashboard.json` and a static `index.html`; nothing from specs, diffs or review reports is exported.
