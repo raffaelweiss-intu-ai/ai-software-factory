@@ -50,4 +50,4 @@ State is the files in `factory/jobs/`. After a crash or a closed session run `/f
 
 ## Dashboard export
 
-(Added with the dashboard.) After each stage change run `python3 factory/bin/export.py` to write the sanitized `docs/factory-data.json` the dashboard reads.
+After each stage change run `python3 factory/bin/export.py` (optionally `--out <dir>`, default `docs`). It writes the sanitized `dashboard.json` and a static `index.html`; nothing from specs, diffs or review reports is exported.
