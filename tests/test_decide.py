@@ -24,7 +24,7 @@ class DecideTests(unittest.TestCase):
         self.tmp.cleanup()
 
     def job(self, verdict="APPROVE", confidence="high", categories="none", risk="low", surfaces="none",
-            gate="PASS", reviews=(("code", "PASS"),), rnd=1, intake=True):
+            gate="PASS", reviews=(("code", "PASS"),), rnd=1, intake=True, gaps=None):
         if intake:
             (self.dir / "intake.md").write_text(f"DECISION: ACCEPT\nRISK: {risk}\nSURFACES: {surfaces}\n")
         lines = [verdict, "", "## Summary", "- x"]
@@ -34,7 +34,7 @@ class DecideTests(unittest.TestCase):
         (self.dir / "decision.md").write_text("\n".join(lines) + "\n")
         r = self.dir / f"round-{rnd}"
         r.mkdir(exist_ok=True)
-        (r / "checks.md").write_text(f"GATE: {gate}\n")
+        (r / "checks.md").write_text(f"GATE: {gate}\n" + ("" if gaps is None else f"VERIFY-GAPS: {gaps}\n"))
         for name, v in reviews:
             (r / f"review-{name}.md").write_text(f"VERDICT: {v}\n")
         return decide.decide(self.dir, rnd, CONFIG)
@@ -43,6 +43,15 @@ class DecideTests(unittest.TestCase):
         out = self.job()
         self.assertEqual(out["outcome"], "AUTO-MERGE")
         self.assertEqual(out["reasons"], [])
+
+    def test_unverified_change_goes_to_human(self):
+        out = self.job(gaps=2)
+        self.assertEqual(out["outcome"], "HUMAN")
+        self.assertTrue(any("not covered by the feature map" in r for r in out["reasons"]))
+
+    def test_zero_gaps_or_no_verification_step_still_merges(self):
+        self.assertEqual(self.job(gaps=0)["outcome"], "AUTO-MERGE")
+        self.assertEqual(self.job(gaps=None)["outcome"], "AUTO-MERGE")
 
     def test_escalate_verdict_goes_to_human(self):
         out = self.job(verdict="ESCALATE")

@@ -287,6 +287,61 @@ class ExportTests(unittest.TestCase):
             json.dumps({"job": "3", "outcome": "human-changed", "regret": False}) + "\n")
         self.assertAlmostEqual(export.build(self.root, now=self.NOW)["summary"]["throughput"]["escape_rate"], 0.5)
 
+    # --- The ramp: from today's weekly pace to the monthly target ----------------
+    def merged_at(self, job_id, issue, when):
+        self.raw_job(job_id, "merged", [("2026-11-01T08:00:00+00:00", "intake", ""), (when, "merged", "")], issue=issue)
+
+    def test_ramp_buckets_merges_into_rolling_weeks(self):
+        self.merged_at("001-a", 1, "2026-11-15T09:00:00+00:00")   # this week
+        self.merged_at("002-b", 2, "2026-11-14T09:00:00+00:00")   # this week
+        self.merged_at("003-c", 3, "2026-11-05T09:00:00+00:00")   # one week earlier
+        r = export.build(self.root, now=self.NOW)["summary"]["throughput"]["ramp"]
+        self.assertEqual([w["merged"] for w in r["weeks"]][-2:], [1, 2])
+        self.assertEqual(len(r["weeks"]), 8)
+        self.assertEqual(r["this_week"], 2)
+
+    def test_ramp_target_and_growth_needed(self):
+        self.config({"prs_per_month": 2500, "ramp_weeks": 26})
+        self.merged_at("001-a", 1, "2026-11-15T09:00:00+00:00")
+        r = export.build(self.root, now=self.NOW)["summary"]["throughput"]["ramp"]
+        self.assertEqual(r["target_per_week"], 583)
+        self.assertEqual(r["horizon_weeks"], 26)
+        # (583/1)^(1/26) - 1 is about 27 % a week
+        self.assertAlmostEqual(r["weekly_growth_needed"], 0.279, places=2)
+        self.assertEqual(r["next_week_goal"], 2)
+
+    def test_ramp_without_merges_asks_for_the_first_one(self):
+        r = export.build(self.root, now=self.NOW)["summary"]["throughput"]["ramp"]
+        self.assertEqual(r["this_week"], 0)
+        self.assertEqual(r["next_week_goal"], 1)
+
+    def test_bottleneck_is_escapes_before_anything_else(self):
+        self.three_merged()
+        (self.root / "factory/learning").mkdir(parents=True)
+        rows = [{"job": "001-a", "outcome": "auto", "regret": True}, {"job": "002-b", "outcome": "auto", "regret": False}]
+        (self.root / "factory/learning/log.jsonl").write_text("\n".join(json.dumps(r) for r in rows) + "\n")
+        r = export.build(self.root, now=self.NOW)["summary"]["throughput"]["ramp"]
+        self.assertEqual(r["bottleneck"]["kind"], "escapes")
+
+    def test_bottleneck_is_autonomy_when_too_few_merge_alone(self):
+        self.three_merged()   # 2 of 3 alone = 67 %, 90 % needed
+        r = export.build(self.root, now=self.NOW)["summary"]["throughput"]["ramp"]
+        self.assertEqual(r["bottleneck"]["kind"], "autonomy")
+
+    def test_bottleneck_is_volume_when_everything_else_is_fine(self):
+        self.config({"prs_per_month": 20, "human_hours_per_week": 10, "minutes_per_human_review": 10})
+        self.three_merged()
+        for j in ("003-c",):
+            (self.root / "factory/jobs" / j / "job.json").unlink()
+        r = export.build(self.root, now=self.NOW)["summary"]["throughput"]["ramp"]
+        self.assertEqual(r["bottleneck"]["kind"], "volume")
+
+    def test_ramp_panel_is_in_the_page(self):
+        self.merged_at("001-a", 1, "2026-11-15T09:00:00+00:00")
+        page = export.render_html(export.build(self.root, now=self.NOW))
+        self.assertIn("Next week", page)
+        self.assertIn("Bottleneck", page)
+
     def test_throughput_panel_names_the_target(self):
         self.three_merged()
         page = export.render_html(export.build(self.root, now=self.NOW))

@@ -40,6 +40,15 @@ class GateTests(unittest.TestCase):
             verdict, _ = gate.run_checks(["bash", "-c", "exit 0"], Path(d))
         self.assertEqual(verdict, "PASS")
 
+    def test_failed_verification_fails_the_gate_even_if_checks_pass(self):
+        self.assertEqual(gate.decide("PASS", [], "FAIL"), "FAIL")
+        self.assertEqual(gate.decide("PASS", [], "PASS"), "PASS")
+        self.assertEqual(gate.decide("PASS", [], "SKIP"), "PASS")
+
+    def test_report_carries_the_verification_block(self):
+        text = gate.render_report("PASS", [], "ok", "VERIFY: PASS\nVERIFY-GAPS: 1\n")
+        self.assertIn("VERIFY-GAPS: 1", text)
+
     def test_protected_hit_fails_even_if_checks_pass(self):
         self.assertEqual(gate.decide("PASS", ["M factory/checks.sh"]), "FAIL")
         self.assertEqual(gate.decide("PASS", []), "PASS")
