@@ -44,6 +44,12 @@ class DecideTests(unittest.TestCase):
         self.assertEqual(out["outcome"], "AUTO-MERGE")
         self.assertEqual(out["reasons"], [])
 
+    def test_reasons_are_english_because_the_dashboard_shows_them(self):
+        out = self.job(verdict="ESCALATE", confidence="low", risk="high", surfaces="security", gate="FAIL")
+        text = " ".join(out["reasons"])
+        for german in ("Konfidenz", "Risiko", "Fläche", "Approver sagt", "liegt", "Prüfer", "Runde", "Selbst-Freigabe"):
+            self.assertNotIn(german, text)
+
     def test_unverified_change_goes_to_human(self):
         out = self.job(gaps=2)
         self.assertEqual(out["outcome"], "HUMAN")
@@ -63,7 +69,7 @@ class DecideTests(unittest.TestCase):
     def test_missing_confidence_counts_as_low(self):
         out = self.job(confidence=None)
         self.assertEqual(out["outcome"], "HUMAN")
-        self.assertTrue(any("Konfidenz" in r for r in out["reasons"]))
+        self.assertTrue(any("Confidence" in r for r in out["reasons"]))
 
     def test_medium_risk_goes_to_human(self):
         self.assertEqual(self.job(risk="medium")["outcome"], "HUMAN")
