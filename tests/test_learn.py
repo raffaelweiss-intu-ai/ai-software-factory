@@ -74,21 +74,21 @@ class LearnTests(unittest.TestCase):
         learn.record(self.root, "001-a")
         learn.flag(self.root, "001-a", "kaputt")
         rep = learn.report(self.root)
-        self.assertTrue(any("Verschärfen" in p for p in rep["proposals"]))
+        self.assertTrue(any("Tighten" in p for p in rep["proposals"]))
 
     def test_small_sample_gives_no_loosening_proposal(self):
         for i in range(3):
             self.job(f"00{i}-a", "merged", events=[("intake", ""), ("needs-human", "x"), ("merged", "")], issue=i)
             learn.record(self.root, f"00{i}-a")
         rep = learn.report(self.root, min_sample=5)
-        self.assertFalse(any("Lockern" in p for p in rep["proposals"]))
+        self.assertFalse(any("Loosen" in p for p in rep["proposals"]))
 
     def test_enough_unchanged_escalations_propose_loosening(self):
         for i in range(5):
             self.job(f"00{i}-a", "merged", events=[("intake", ""), ("needs-human", "x"), ("merged", "")], issue=i)
             learn.record(self.root, f"00{i}-a")
         rep = learn.report(self.root, min_sample=5)
-        self.assertTrue(any("Lockern" in p and "low/high" in p for p in rep["proposals"]))
+        self.assertTrue(any("Loosen" in p and "low/high" in p for p in rep["proposals"]))
 
     def test_changed_escalation_blocks_loosening(self):
         for i in range(5):
@@ -96,7 +96,7 @@ class LearnTests(unittest.TestCase):
             self.job(f"00{i}-a", "merged", events=[("intake", ""), ("needs-human", "x"), ("build", ""), ("merged", "")] if fb
                      else [("intake", ""), ("needs-human", "x"), ("merged", "")], feedback=fb, issue=i)
             learn.record(self.root, f"00{i}-a")
-        self.assertFalse(any("Lockern" in p for p in learn.report(self.root, min_sample=5)["proposals"]))
+        self.assertFalse(any("Loosen" in p for p in learn.report(self.root, min_sample=5)["proposals"]))
 
     def test_report_never_changes_config(self):
         cfg = self.root / "factory" / "config.json"
@@ -125,6 +125,73 @@ class LearnTests(unittest.TestCase):
         f.write_text(f.read_text().replace("- [ ] 001-a/feedback-1", "- [x] 001-a/feedback-1"))
         learn.lessons(self.root)
         self.assertIn("- [x] 001-a/feedback-1", f.read_text())
+
+    # --- Fix ladder and repeat detection ------------------------------------
+    def categories(self, jid, cats):
+        (self.root / "factory/jobs" / jid / "decision.md").write_text(f"ESCALATE\n\nCONFIDENCE: high\nCATEGORIES: {cats}\n")
+
+    def test_record_keeps_escalation_categories(self):
+        self.job("001-a", "merged")
+        self.categories("001-a", "auth, permissions")
+        self.assertEqual(learn.record(self.root, "001-a")["categories"], ["auth", "permissions"])
+
+    def test_category_none_is_not_a_category(self):
+        self.job("001-a", "merged")
+        self.assertEqual(learn.record(self.root, "001-a")["categories"], [])
+
+    def test_repeated_category_proposes_structural_fix(self):
+        for i in range(3):
+            self.job(f"00{i}-a", "merged", issue=i)
+            self.categories(f"00{i}-a", "auth")
+            learn.record(self.root, f"00{i}-a")
+        props = learn.report(self.root)["proposals"]
+        self.assertTrue(any("Make structural" in p and "auth" in p and "3" in p for p in props))
+
+    def test_twice_is_not_yet_a_repeat(self):
+        for i in range(2):
+            self.job(f"00{i}-a", "merged", issue=i)
+            self.categories(f"00{i}-a", "auth")
+            learn.record(self.root, f"00{i}-a")
+        self.assertFalse(any("Make structural" in p for p in learn.report(self.root)["proposals"]))
+
+    def test_lessons_show_level_and_keep_ticks(self):
+        self.job("001-a", "merged", events=[("intake", ""), ("needs-human", "x"), ("build", ""), ("merged", "")], feedback=1)
+        learn.record(self.root, "001-a")
+        learn.lessons(self.root)
+        learn.set_level(self.root, "001-a/feedback-1", "static-check")
+        learn.lessons(self.root)
+        text = (self.root / "factory/learning/proposals.md").read_text()
+        self.assertIn("001-a/feedback-1 (level: static-check)", text)
+        text = text.replace("- [ ]", "- [x]")
+        (self.root / "factory/learning/proposals.md").write_text(text)
+        learn.lessons(self.root)
+        self.assertIn("- [x] 001-a/feedback-1 (level: static-check)", (self.root / "factory/learning/proposals.md").read_text())
+
+    def test_unknown_level_is_refused(self):
+        with self.assertRaises(ValueError):
+            learn.set_level(self.root, "001-a/feedback-1", "vibes")
+
+    def test_report_counts_lessons_by_level(self):
+        self.job("001-a", "merged", events=[("intake", ""), ("needs-human", "x"), ("build", ""), ("merged", "")], feedback=2)
+        learn.record(self.root, "001-a")
+        learn.set_level(self.root, "001-a/feedback-1", "rule")
+        by = learn.report(self.root)["lessons_by_level"]
+        self.assertEqual(by["rule"], 1)
+        self.assertEqual(by["unclassified"], 1)
+
+    def test_mostly_weak_levels_propose_pushing_up(self):
+        self.job("001-a", "merged", events=[("intake", ""), ("needs-human", "x"), ("build", ""), ("merged", "")], feedback=5)
+        learn.record(self.root, "001-a")
+        for k in range(1, 5):
+            learn.set_level(self.root, f"001-a/feedback-{k}", "skill" if k < 4 else "guide")
+        self.assertTrue(any("Move up the ladder" in p for p in learn.report(self.root)["proposals"]))
+
+    def test_mostly_strong_levels_propose_nothing(self):
+        self.job("001-a", "merged", events=[("intake", ""), ("needs-human", "x"), ("build", ""), ("merged", "")], feedback=5)
+        learn.record(self.root, "001-a")
+        for k in range(1, 5):
+            learn.set_level(self.root, f"001-a/feedback-{k}", "static-check")
+        self.assertFalse(any("Move up the ladder" in p for p in learn.report(self.root)["proposals"]))
 
 
 if __name__ == "__main__":
