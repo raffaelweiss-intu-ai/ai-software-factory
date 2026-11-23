@@ -8,13 +8,15 @@ You are installing the software factory from this repository into the user's pro
    - `skills/software-factory/agents/*.md` -> `.claude/agents/`
    - `skills/software-factory/scripts/*` -> `factory/bin/`
    - `skills/software-factory/templates/config.json`, `checks.sh` -> `factory/`
+   - `skills/software-factory/templates/verify/*` -> `factory/verify/`
    - `skills/software-factory/templates/settings.json` -> `.claude/settings.json` (merge with an existing file; never drop existing `deny` rules)
    - `templates/workflows/gates.yml` -> `.github/workflows/gates.yml`; `gitleaks.toml` -> `.gitleaks.toml`; `pre-commit-config.yaml` -> `.pre-commit-config.yaml`
    - Append `templates/gitignore.snippet` to `.gitignore` (skip lines already present).
 3. **Fill `factory/checks.sh`** with this project's real lint, typecheck, test and build commands. Run it on `main`. It must pass before you continue.
 4. **Tailor** the reviewers to the stack: edit the stack-specific lines in `reviewer-code.md` and `reviewer-ui.md`; if the project has no UI, delete `reviewer-ui.md` and the `ui` entry in `factory/config.json`.
-5. **Add the index.** Merge `templates/AGENTS-section.md` into the project's `AGENTS.md`, adapting the paths to what exists. Do not invent files.
-6. **Create the labels:** `factory`, `factory:needs-info`, `factory:needs-human`.
-7. **Obsidian (optional).** Copy `templates/fabrik.canvas` into the user's vault.
-8. **Verify.** Run `python3 -m unittest discover -s tests` in this repository's checkout if available, then create one low-risk test issue labeled `factory` and run `/factory run 1` with `concurrency: 1`. Report what ran and what did not.
-9. **Report** what was installed, what you adapted and what is still untested. Do not claim the factory works until a job went through end to end.
+5. **Build the feature map.** Replace the example in `factory/verify/features.json` with the project's real features (one per user-visible capability, with the paths each lives in) and write one recipe per feature in `factory/verify/`. Run each on `main` and show it passing and, with the feature broken on purpose, failing. Run `python3 factory/bin/verify.py check`. Add `factory/verify/*` to `protected_paths`.
+6. **Add the index.** Merge `templates/AGENTS-section.md` into the project's `AGENTS.md`, adapting the paths to what exists. Do not invent files.
+7. **Create the labels:** `factory`, `factory:needs-info`, `factory:needs-human`.
+8. **Obsidian (optional).** Copy `templates/fabrik.canvas` into the user's vault.
+9. **Verify.** Run `python3 -m unittest discover -s tests` in this repository's checkout if available, then create one low-risk test issue labeled `factory` and run `/factory run 1` with `concurrency: 1`. Report what ran and what did not.
+10. **Report** what was installed, what you adapted and what is still untested. Do not claim the factory works until a job went through end to end.

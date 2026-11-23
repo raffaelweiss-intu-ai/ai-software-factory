@@ -22,7 +22,7 @@ issue (label factory)
   -> intake         ACCEPT | NEEDS-INFO | REJECT, risk, surfaces
   -> spec-writer    spec.md with testable acceptance criteria
   -> builder        tests first, small commits, draft PR "Closes #n"
-  -> gate (script)  factory/checks.sh from main + protected paths. FAIL -> builder, no reviewer runs
+  -> gate (script)  factory/checks.sh from main + protected paths + verify.py (feature map). FAIL -> builder, no reviewer runs
   -> reviewers      chosen by `route.py` from risk and surfaces, in parallel
   -> approver       APPROVE or ESCALATE, plus CONFIDENCE and CATEGORIES
   -> decide (script) AUTO-MERGE -> merge.sh | HUMAN -> label factory:needs-human
@@ -49,6 +49,25 @@ Every prompt starts with the job folder (`factory/jobs/<job-id>/`), then the wor
 
 State is the files in `factory/jobs/`. After a crash or a closed session run `/factory run`: read `job.py list` and continue every job from its stage. Work that was in flight is lost; that is expected, say so.
 
+## Verification and the feature map
+
+Passing tests do not prove the feature works. `factory/verify/features.json` lists the product's features, the paths each lives in and a small recipe that exercises it end to end. `gate.py` runs `verify.py` after the checks: it maps the branch's changed files to features (the blast radius), runs exactly those recipes and puts their output into `round-N/checks.md` as evidence (`VERIFY: PASS|FAIL|SKIP`, `VERIFY-GAPS: n`).
+
+- A failing recipe fails the gate like a failing test.
+- A changed source file no feature owns is a **gap**. The gate still passes, but `decide.py` sends the job to a human: an unverified change is never merged alone. Spawn the `verifier` agent for the gaps; it writes `round-N/verify-proposal.md` with a feature entry and a recipe that passes on the branch and fails when the feature is broken. A human adopts the proposal (the map is protected), so the map only grows by decision.
+- Write every recipe so it is self-contained, fast, deterministic and non-interactive. `python3 factory/bin/verify.py check` validates the map, `verify.py plan <worktree>` shows what a branch touches.
+- No map means `VERIFY: SKIP`. Say so in the PR; it is not a pass.
+
+## Parallel jobs
+
+`concurrency` above 1 needs isolation and ordering, and `workspace.py` does both:
+
+- `workspace.py add <job-id>` gives each job its own worktree and branch; run each builder as its own session inside it (see Workspace above). `workspace.py slots` says how many jobs may start: jobs waiting for a human do not occupy a slot.
+- Before starting jobs together, `workspace.py overlaps <job-id>...` lists pairs that edit the same files. Run such jobs one after the other, not side by side.
+- After a job merges, every other open branch is behind. `workspace.py sync <job-id>` merges the moved base into the branch; on a conflict it aborts cleanly and exits 1, and the job goes back to the builder.
+- `job.py create` is serialized by a lock; job numbers count up and are never reused.
+- The dashboard's ramp shows merges per week, the goal for next week and the current bottleneck.
+
 ## Evals and learning
 
 Deterministic things stay deterministic. A script checks whatever a script can check; a model judges only where judgement is needed.
@@ -62,4 +81,4 @@ Deterministic things stay deterministic. A script checks whatever a script can c
 
 After each stage change run `python3 factory/bin/export.py` (optionally `--out <dir>`, default `docs`). It writes the sanitized `dashboard.json` and a static `index.html` in English; nothing from specs, diffs or review reports is exported.
 
-The throughput panel shows the path to the monthly target (`targets` in `factory/config.json`: `prs_per_month` 2500, `human_hours_per_week` 10, `minutes_per_human_review` 10 by default): the pace so far, the share merged without a human, the share the target needs given the human review budget, the first-pass rate, the human wait per merged PR and the escape rate (self-merges later flagged as a defect). Treat these as assumptions and anecdotes until at least 30 jobs have merged; the panel says so.
+The throughput panel opens with the ramp (merged per week for eight weeks, next week's goal on a steady growth curve towards `prs_per_month` within `ramp_weeks`, and the one bottleneck: escapes above `max_escape_rate`, too little autonomy, first-pass rate below `min_first_pass_rate`, or plain volume). It then shows the path to the monthly target (`targets` in `factory/config.json`: `prs_per_month` 2500, `human_hours_per_week` 10, `minutes_per_human_review` 10 by default): the pace so far, the share merged without a human, the share the target needs given the human review budget, the first-pass rate, the human wait per merged PR and the escape rate (self-merges later flagged as a defect). Treat these as assumptions and anecdotes until at least 30 jobs have merged; the panel says so.

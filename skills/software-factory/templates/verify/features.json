@@ -1,0 +1,11 @@
+{
+  "ignore": ["test/*", "docs/*", "*.md", "factory/*", ".github/*", "package.json", "package-lock.json"],
+  "features": [
+    {
+      "id": "example-feature",
+      "description": "Replace with one user-visible capability of this project",
+      "paths": ["src/example.*"],
+      "verify": { "cmd": "bash factory/verify/example.sh", "timeout": 60 }
+    }
+  ]
+}
