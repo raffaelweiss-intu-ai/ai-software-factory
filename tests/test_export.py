@@ -120,11 +120,11 @@ class ExportTests(unittest.TestCase):
         self.assertNotIn("<script>alert(1)</script>", (out / "index.html").read_text())
 
     # --- Kennzahlen, Risiko, Zeit -----------------------------------------
-    def raw_job(self, job_id, stage, events, intake=None, title="Job", issue=1):
+    def raw_job(self, job_id, stage, events, intake=None, title="Job", issue=1, round_=1):
         d = self.root / "factory" / "jobs" / job_id
         d.mkdir(parents=True, exist_ok=True)
         (d / "job.json").write_text(json.dumps({
-            "id": job_id, "issue": issue, "title": title, "stage": stage, "round": 1,
+            "id": job_id, "issue": issue, "title": title, "stage": stage, "round": round_,
             "events": [{"at": a, "stage": s, "round": 1, "note": n} for a, s, n in events]}))
         if intake:
             (d / "intake.md").write_text(intake)
@@ -218,6 +218,87 @@ class ExportTests(unittest.TestCase):
         self.assertEqual(export.fmt_minutes(80), "1 h 20 min")
         self.assertEqual(export.fmt_minutes(1380), "23 h")
         self.assertEqual(export.fmt_minutes(None), "–")
+
+    # --- English dashboard ------------------------------------------------------
+    def test_html_is_english(self):
+        self.raw_job("001-x", "needs-human", [("2026-11-15T10:00:00+00:00", "intake", ""),
+                                               ("2026-11-15T10:30:00+00:00", "needs-human", "Permission")],
+                     intake="DECISION: ACCEPT\nRISK: high\nSURFACES: security\n")
+        self.round_file("001-x", 1, "checks.md", "GATE: PASS\n")
+        page = export.render_html(export.build(self.root, now=self.NOW))
+        self.assertIn('<html lang="en">', page)
+        for german in ("Risiko", "Runde", "Wartet", "Aufträge", "Rückfrage", "Gemergt", "Prüfer", "Fortschritt",
+                       "selbstständig", "Konfidenz", "Spezifikation", "Warten"):
+            self.assertNotIn(german, page)
+        self.assertIn("Risk high", page)
+        self.assertIn("Round 1", page)
+
+    # --- Throughput and the path to the monthly target ---------------------------
+    def config(self, targets):
+        (self.root / "factory").mkdir(parents=True, exist_ok=True)
+        (self.root / "factory/config.json").write_text(json.dumps({"targets": targets}))
+
+    def three_merged(self):
+        base = "2026-11-15T08:00:00+00:00"
+        self.raw_job("001-a", "merged", [(base, "intake", ""), ("2026-11-15T08:10:00+00:00", "merged", "")], issue=1)
+        self.raw_job("002-b", "merged", [(base, "intake", ""), ("2026-11-15T08:10:00+00:00", "merged", "")], issue=2)
+        self.raw_job("003-c", "merged", [(base, "intake", ""), ("2026-11-15T08:10:00+00:00", "needs-human", ""),
+                                          ("2026-11-15T09:10:00+00:00", "merged", "")], issue=3, round_=2)
+
+    def test_throughput_defaults_to_2500_a_month(self):
+        t = export.build(self.root, now=self.NOW)["summary"]["throughput"]
+        self.assertEqual(t["target_per_month"], 2500)
+        self.assertEqual(t["human_hours_per_week"], 10)
+        self.assertEqual(t["minutes_per_human_review"], 10)
+        self.assertEqual(t["merged_in_window"], 0)
+        self.assertIsNone(t["auto_merge_rate"])
+
+    def test_throughput_projection_and_capacity_model(self):
+        self.config({"prs_per_month": 300, "human_hours_per_week": 7, "minutes_per_human_review": 10})
+        self.three_merged()
+        t = export.build(self.root, now=self.NOW)["summary"]["throughput"]
+        self.assertEqual(t["merged_in_window"], 3)
+        self.assertEqual(t["window_days"], 1)
+        self.assertEqual(t["projected_per_month"], 90)
+        self.assertAlmostEqual(t["progress_to_target"], 0.3)
+        self.assertAlmostEqual(t["auto_merge_rate"], 2 / 3)
+        self.assertEqual(t["human_review_capacity_per_month"], 180)
+        self.assertAlmostEqual(t["required_auto_merge_rate"], 0.4)
+        self.assertEqual(t["max_target_at_current_autonomy"], 540)
+        self.assertAlmostEqual(t["first_pass_rate"], 2 / 3)
+
+    def test_required_autonomy_for_the_default_target(self):
+        t = export.build(self.root, now=self.NOW)["summary"]["throughput"]
+        self.assertAlmostEqual(t["required_auto_merge_rate"], 1 - 257.142857 / 2500, places=3)
+
+    def test_small_samples_are_marked_as_anecdotes(self):
+        self.three_merged()
+        self.assertFalse(export.build(self.root, now=self.NOW)["summary"]["throughput"]["sample_ok"])
+
+    def test_merges_older_than_the_window_do_not_count(self):
+        self.raw_job("001-a", "merged", [("2026-09-01T08:00:00+00:00", "intake", ""), ("2026-09-01T08:10:00+00:00", "merged", "")])
+        self.assertEqual(export.build(self.root, now=self.NOW)["summary"]["throughput"]["merged_in_window"], 0)
+
+    def test_escape_rate_counts_flagged_self_merges(self):
+        (self.root / "factory/learning").mkdir(parents=True)
+        (self.root / "factory/learning/log.jsonl").write_text(
+            json.dumps({"job": "1", "outcome": "auto", "regret": True}) + "\n" +
+            json.dumps({"job": "2", "outcome": "auto", "regret": False}) + "\n" +
+            json.dumps({"job": "3", "outcome": "human-changed", "regret": False}) + "\n")
+        self.assertAlmostEqual(export.build(self.root, now=self.NOW)["summary"]["throughput"]["escape_rate"], 0.5)
+
+    def test_throughput_panel_names_the_target(self):
+        self.three_merged()
+        page = export.render_html(export.build(self.root, now=self.NOW))
+        self.assertIn("Path to 2,500 PRs a month", page)
+        self.assertIn("anecdote", page)
+
+    def test_learning_summary_reports_lessons_by_level(self):
+        (self.root / "factory/learning").mkdir(parents=True)
+        (self.root / "factory/learning/log.jsonl").write_text("")
+        (self.root / "factory/learning/levels.json").write_text(json.dumps({"a/feedback-1": "rule", "a/feedback-2": "skill"}))
+        L = export.build(self.root, now=self.NOW)["summary"]["learning"]
+        self.assertEqual(L["levels"], {"rule": 1, "skill": 1})
 
 
 if __name__ == "__main__":

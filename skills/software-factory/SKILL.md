@@ -55,8 +55,11 @@ Deterministic things stay deterministic. A script checks whatever a script can c
 
 - **Evals.** Run `python3 factory/bin/eval.py` before and after you change an agent prompt, `factory/config.json` or a model. It replays `factory/evals/cases.jsonl` against the files of past jobs (intake verdict, risk never under-estimated, the auto-merge rule) and exits 1 on any FAIL. A change that turns a case red does not ship. Add a case whenever a human corrects the factory: `python3 factory/bin/eval.py add intake <job-id> decision=ACCEPT risk=high surfaces=security`.
 - **Learning.** When a job reaches `merged` or `rejected`, run `python3 factory/bin/learn.py record <job-id>`. If an auto-merged job later turns out wrong, run `learn.py flag <job-id> "<reason>"`. `learn.py report` proposes threshold changes (never below `min_sample` = 5 cases); `learn.py lessons` lists human feedback as open rule proposals in `factory/learning/proposals.md`.
+- **Fix ladder.** Every lesson gets a level: `learn.py level <job/feedback-N> <architecture|static-check|rule|skill|guide>`, strongest first. Fix a mistake as high up as it goes: make it impossible in the code, then a type or lint whose error names the fix, then a review rule, then a skill, and only last a line in a guide. `learn.py report` proposes "Make structural" when one escalation category repeats three times, and "Move up the ladder" when most classified lessons sit in skills and guides.
 - **A human decides.** Neither script edits `config.json`, rules or checks. The factory never loosens its own gates.
 
 ## Dashboard export
 
-After each stage change run `python3 factory/bin/export.py` (optionally `--out <dir>`, default `docs`). It writes the sanitized `dashboard.json` and a static `index.html`; nothing from specs, diffs or review reports is exported.
+After each stage change run `python3 factory/bin/export.py` (optionally `--out <dir>`, default `docs`). It writes the sanitized `dashboard.json` and a static `index.html` in English; nothing from specs, diffs or review reports is exported.
+
+The throughput panel shows the path to the monthly target (`targets` in `factory/config.json`: `prs_per_month` 2500, `human_hours_per_week` 10, `minutes_per_human_review` 10 by default): the pace so far, the share merged without a human, the share the target needs given the human review budget, the first-pass rate, the human wait per merged PR and the escape rate (self-merges later flagged as a defect). Treat these as assumptions and anecdotes until at least 30 jobs have merged; the panel says so.
